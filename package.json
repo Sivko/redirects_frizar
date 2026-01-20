@@ -1,0 +1,20 @@
+{
+  "name": "redirects_ex_rules",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "main": "node main.js",
+    "fetch-data": "bash scripts/fetch_mongo_data.sh",
+    "export": "node exportRedirects.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "axios": "^1.6.0",
+    "fast-levenshtein": "^3.0.0"
+  }
+}

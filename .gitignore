@@ -1,0 +1,21 @@
+# Environment variables
+.env
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Node modules
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+/data
+!/data/errors.example.json
