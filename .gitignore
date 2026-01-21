@@ -20,3 +20,4 @@ Thumbs.db
 !*.csv
 errors.json
 /data/*.json
+result.json

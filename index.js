@@ -85,14 +85,21 @@ function processRedirects() {
       continue;
     }
     
+    // Определяем фактический тип для поиска
+    // Если это catalog, но у url есть цифра, то сопоставлять с product
+    let actualType = urlType;
+    if (urlType === 'catalog' && /\d/.test(url)) {
+      actualType = 'product';
+    }
+    
     // Выбираем соответствующую таблицу для поиска
-    const searchTable = urlType === 'product' ? products : catalog;
+    const searchTable = actualType === 'product' ? products : catalog;
     
     // Выполняем неточный поиск
     const match = findBestMatch(code, searchTable);
     
     if (match) {
-      const toUrl = `https://frizar.ru/${urlType}/${match.code}`;
+      const toUrl = `https://frizar.ru/${actualType}/${match.code}`;
       
       redirects.push({
         from: url,
@@ -100,7 +107,7 @@ function processRedirects() {
         percent: match.percent
       });
       
-      if (urlType === 'product') {
+      if (actualType === 'product') {
         productMatches++;
       } else {
         catalogMatches++;
