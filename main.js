@@ -211,13 +211,11 @@ async function main() {
     }
     
     await clearData();
-    await askQuestion('\nНажмите Enter для продолжения...');
     
     // Шаг 2: Скачать коллекции с сервера
     console.log('\n' + '='.repeat(50));
     console.log('Шаг 2: Скачивание коллекций с сервера');
     console.log('='.repeat(50));
-    await askQuestion('Нажмите Enter для начала скачивания...');
     
     try {
       await fetchCollections();
@@ -226,35 +224,27 @@ async function main() {
       console.error('✗ Ошибка при скачивании коллекций:', error.message);
       throw error;
     }
-    
-    await askQuestion('\nНажмите Enter для продолжения...');
-    
+        
     // Шаг 3: Преобразовать CSV в JSON
     console.log('\n' + '='.repeat(50));
     console.log('Шаг 3: Преобразование CSV в JSON');
     console.log('='.repeat(50));
-    await askQuestion('Нажмите Enter для начала преобразования...');
     
     await convertCsvToJson();
-    await askQuestion('\nНажмите Enter для продолжения...');
     
     // Шаг 4: Запустить поиск релевантных редиректов
     console.log('\n' + '='.repeat(50));
     console.log('Шаг 4: Поиск релевантных редиректов');
     console.log('='.repeat(50));
-    await askQuestion('Нажмите Enter для начала поиска...');
     
     executeCommand('npm start', 'Поиск релевантных редиректов');
-    await askQuestion('\nНажмите Enter для продолжения...');
     
     // Шаг 5: Выгрузить результат в файл "result.json"
     console.log('\n' + '='.repeat(50));
     console.log('Шаг 5: Выгрузка результата в файл "result.json"');
     console.log('='.repeat(50));
-    await askQuestion('Нажмите Enter для начала выгрузки...');
     
     executeCommand('npm run export', 'Выгрузка результата в файл');
-    await askQuestion('\nНажмите Enter для продолжения...');
     
     // Шаг 6: Отправить результаты на сервер?
     console.log('\n' + '='.repeat(50));

@@ -79,26 +79,76 @@ async function sendResultsToServer() {
     });
     
     console.log(`\nОтправка ${redirects.length} редиректов на сервер...`);
+    console.log(`Отправка батчами по 20 записей`);
     console.log('-'.repeat(50));
     
-    // Отправляем на сервер
-    const response = await axios.post(
-      apiUrl,
-      redirects,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        timeout: 30000 // 30 секунд таймаут
+    // Разбиваем на батчи по 20 записей
+    const batchSize = 20;
+    const batches = [];
+    for (let i = 0; i < redirects.length; i += batchSize) {
+      batches.push(redirects.slice(i, i + batchSize));
+    }
+    
+    console.log(`Всего батчей: ${batches.length}`);
+    
+    // Отправляем каждый батч отдельно
+    let totalCreated = 0;
+    let totalUpdated = 0;
+    let totalProcessed = 0;
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      const batchNumber = i + 1;
+      
+      try {
+        console.log(`Отправка батча ${batchNumber}/${batches.length} (${batch.length} записей)...`);
+        
+        const response = await axios.post(
+          apiUrl,
+          batch,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
+            timeout: 30000 // 30 секунд таймаут
+          }
+        );
+        
+        totalCreated += response.data.created || 0;
+        totalUpdated += response.data.updated || 0;
+        totalProcessed += response.data.total || batch.length;
+        successCount++;
+        
+        console.log(`  ✓ Батч ${batchNumber} отправлен успешно`);
+        console.log(`    Создано: ${response.data.created || 0}, Обновлено: ${response.data.updated || 0}`);
+        
+      } catch (error) {
+        errorCount++;
+        console.error(`  ✗ Ошибка при отправке батча ${batchNumber}`);
+        
+        if (error.response) {
+          console.error(`    Статус: ${error.response.status}`);
+          console.error(`    Сообщение: ${error.response.data?.message || error.response.statusText}`);
+        } else {
+          console.error(`    ${error.message}`);
+        }
+        
+        // Продолжаем отправку следующих батчей даже при ошибке
       }
-    );
+    }
     
     console.log('-'.repeat(50));
-    console.log('✓ Данные успешно отправлены на сервер');
-    console.log(`  Создано: ${response.data.created || 0}`);
-    console.log(`  Обновлено: ${response.data.updated || 0}`);
-    console.log(`  Всего: ${response.data.total || redirects.length}`);
+    console.log('✓ Отправка завершена');
+    console.log(`  Успешно отправлено батчей: ${successCount}/${batches.length}`);
+    if (errorCount > 0) {
+      console.log(`  Ошибок: ${errorCount}`);
+    }
+    console.log(`  Всего создано: ${totalCreated}`);
+    console.log(`  Всего обновлено: ${totalUpdated}`);
+    console.log(`  Всего обработано: ${totalProcessed}`);
     
   } catch (error) {
     console.log('-'.repeat(50));
