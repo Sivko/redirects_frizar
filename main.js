@@ -1,7 +1,10 @@
+require('dotenv').config();
 const readline = require('readline');
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { fetchCollections } = require('./api/fetchCollections');
+const { sendResultsToServer } = require('./api/sendResults');
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -32,6 +35,8 @@ function showMenu() {
   console.log('2. Запустить поиск релевантных редиректов');
   console.log('3. Выгрузить результат в файл "result.json"');
   console.log('4. Очистить данные');
+  console.log('5. Преобразовать CSV в JSON');
+  console.log('6. Отправить результаты на сервер');
   console.log('0. Выход');
   console.log('='.repeat(50));
 }
@@ -52,6 +57,103 @@ function executeCommand(command, description) {
     console.log('-'.repeat(50));
     console.error(`✗ Ошибка при выполнении: ${description}`);
     console.error(error.message);
+  }
+}
+
+/**
+ * Преобразование CSV в JSON
+ */
+async function convertCsvToJson() {
+  const dataDir = path.join(__dirname, 'data');
+  
+  // Найти первый CSV файл
+  let csvFile = null;
+  try {
+    const files = fs.readdirSync(dataDir);
+    csvFile = files.find(file => file.toLowerCase().endsWith('.csv'));
+    
+    if (!csvFile) {
+      console.log('✗ CSV файлы не найдены в директории /data');
+      return;
+    }
+    
+    console.log(`✓ Найден CSV файл: ${csvFile}`);
+  } catch (error) {
+    console.error(`✗ Ошибка при чтении директории /data: ${error.message}`);
+    return;
+  }
+  
+  const csvPath = path.join(dataDir, csvFile);
+  
+  try {
+    // Читаем CSV файл
+    const csvContent = fs.readFileSync(csvPath, 'utf-8');
+    const lines = csvContent.split('\n').filter(line => line.trim());
+    
+    if (lines.length < 2) {
+      console.log('✗ CSV файл пуст или содержит только заголовки');
+      return;
+    }
+    
+    // Парсим заголовки
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    const urlIndex = headers.indexOf('url');
+    const httpCodeIndex = headers.indexOf('currentHttpCode');
+    
+    if (urlIndex === -1 || httpCodeIndex === -1) {
+      console.log('✗ CSV файл не содержит необходимые колонки (url, currentHttpCode)');
+      return;
+    }
+    
+    // Парсим строки и фильтруем 404 ошибки
+    const errors = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      
+      // Простой парсинг CSV с учетом кавычек
+      const values = [];
+      let currentValue = '';
+      let inQuotes = false;
+      
+      for (let j = 0; j < line.length; j++) {
+        const char = line[j];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          values.push(currentValue.trim());
+          currentValue = '';
+        } else {
+          currentValue += char;
+        }
+      }
+      values.push(currentValue.trim()); // Последнее значение
+      
+      // Убираем кавычки из значений
+      const cleanValues = values.map(v => v.replace(/^"|"$/g, ''));
+      
+      if (cleanValues.length > httpCodeIndex) {
+        const httpCode = cleanValues[httpCodeIndex];
+        if (httpCode === '404') {
+          const url = cleanValues[urlIndex] || '';
+          if (url) {
+            errors.push({
+              url: `https://frizar.ru${url}`
+            });
+          }
+        }
+      }
+    }
+    
+    // Записываем результат в data/errors.json
+    const outputPath = path.join(dataDir, 'errors.json');
+    fs.writeFileSync(outputPath, JSON.stringify(errors, null, 2), 'utf-8');
+    
+    console.log(`✓ Найдено ${errors.length} записей с ошибкой 404`);
+    console.log(`✓ Результат записан в ${outputPath}`);
+    
+  } catch (error) {
+    console.error(`✗ Ошибка при обработке CSV файла: ${error.message}`);
   }
 }
 
@@ -113,11 +215,15 @@ async function main() {
   
   while (true) {
     showMenu();
-    const choice = await askQuestion('\nВыберите действие (0-4): ');
+    const choice = await askQuestion('\nВыберите действие (0-6): ');
     
     switch (choice.trim()) {
       case '1':
-        executeCommand('npm run fetch-data', 'Скачивание коллекций с сервера');
+        try {
+          await fetchCollections();
+        } catch (error) {
+          console.error('✗ Ошибка при скачивании коллекций');
+        }
         break;
         
       case '2':
@@ -132,6 +238,14 @@ async function main() {
         await clearData();
         break;
         
+      case '5':
+        await convertCsvToJson();
+        break;
+        
+      case '6':
+        await sendResultsToServer();
+        break;
+        
       case '0':
         console.log('\nДо свидания!');
         rl.close();
@@ -139,7 +253,7 @@ async function main() {
         break;
         
       default:
-        console.log('\n⚠ Неверный выбор. Пожалуйста, выберите число от 0 до 4.');
+        console.log('\n⚠ Неверный выбор. Пожалуйста, выберите число от 0 до 6.');
         break;
     }
     

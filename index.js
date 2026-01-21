@@ -134,7 +134,7 @@ function processRedirects() {
  */
 async function main() {
   const dataDir = path.join(__dirname, 'data');
-  const errorsFile = path.join(dataDir, 'nest.pages_error.json');
+  const errorsFile = path.join(dataDir, 'errors.json');
   const productsFile = path.join(dataDir, 'nest.product1cs.json');
   const catalogFile = path.join(dataDir, 'nest.catalog1cs.json');
   

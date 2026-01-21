@@ -38,7 +38,7 @@ redirects_ex_rules/
 ├── scripts/
 │   └── fetch_mongo_data.sh  # Скрипт экспорта данных из MongoDB
 └── data/
-    ├── nest.pages_error.json    # Файл с ошибками URL
+    ├── errors.json    # Файл с ошибками URL
     ├── nest.product1cs.json     # Справочник товаров
     └── nest.catalog1cs.json      # Справочник каталогов
 ```
@@ -169,7 +169,7 @@ node exportRedirects.js
 
 ### 1. Обработка ошибок
 
-- Читается файл `data/nest.pages_error.json` с массивом объектов `{url: string}`
+- Читается файл `data/errors.json` с массивом объектов `{url: string}`
 - Создается/пересоздается таблица `actualStatus` с полями:
   - `url` (TEXT, UNIQUE, INDEX) - URL ошибки
   - `status` (INTEGER) - HTTP статус код (заполняется после проверки)
@@ -244,7 +244,7 @@ await processErrors(errorsFile, {
 
 ## Формат входных данных
 
-### nest.pages_error.json
+### errors.json
 
 ```json
 [

@@ -1,3 +1,4 @@
+require('dotenv').config();
 const readline = require('readline');
 const fs = require('fs');
 const path = require('path');
@@ -51,10 +52,28 @@ async function main() {
       return;
     }
     
-    // Формируем объект {from_url: to_url}
-    const result = {};
+    // Получаем BASE_URL из переменных окружения
+    const baseUrl = process.env.BASE_URL || 'https://frizar.ru';
+    
+    // Формируем массив объектов [{from, to, precent}, ...]
+    const result = [];
     for (const redirect of redirects) {
-      result[redirect.from_url] = redirect.to_url;
+      // Извлекаем путь из полного URL
+      const fromPath = redirect.from_url.replace(/^https?:\/\/[^\/]+/, '') || '/';
+      const toPath = redirect.to_url.replace(/^https?:\/\/[^\/]+/, '') || '/';
+      
+      // Формируем полные URL с BASE_URL
+      const fromUrl = `${baseUrl}${fromPath}`;
+      const toUrl = `${baseUrl}${toPath}`;
+      
+      // Округляем процент
+      const precent = Math.round(redirect.percent);
+      
+      result.push({
+        from: fromUrl,
+        to: toUrl,
+        precent: precent
+      });
     }
     
     // Сохраняем в result.json
