@@ -64,6 +64,8 @@ async function checkUrlStatus(url) {
 async function processErrors(errorsFilePath, options = {}) {
   const { concurrency = 10, skipStatusCheck = false } = options;
   
+  console.log(`\n[processErrors] Начало обработки. skipStatusCheck = ${skipStatusCheck}`);
+  
   // Чтение файла
   const errors = readErrorsFile(errorsFilePath);
   
@@ -71,12 +73,13 @@ async function processErrors(errorsFilePath, options = {}) {
   insertErrors(errors);
   
   if (skipStatusCheck) {
-    console.log('Проверка статусов пропущена');
+    console.log('⚠️  Проверка статусов пропущена (skipStatusCheck = true)');
     return;
   }
   
   // Проверка статусов
-  console.log(`Начинаем проверку статусов для ${errors.length} URL...`);
+  console.log(`\n[processErrors] Начинаем проверку статусов для ${errors.length} URL...`);
+  console.log(`[processErrors] Параллелизм: ${concurrency} запросов`);
   
   const urls = errors.map(e => e.url);
   let processed = 0;
@@ -87,22 +90,26 @@ async function processErrors(errorsFilePath, options = {}) {
   for (let i = 0; i < urls.length; i += concurrency) {
     const batch = urls.slice(i, i + concurrency);
     
+    console.log(`[processErrors] Обрабатываем батч ${Math.floor(i / concurrency) + 1}: ${batch.length} URL`);
+    
     const promises = batch.map(async (url) => {
       try {
         const status = await checkUrlStatus(url);
         if (status !== null) {
           updateErrorStatus(url, status);
           successCount++;
+          console.log(`[processErrors] ✓ ${url} -> статус ${status}`);
         } else {
           errorCount++;
+          console.log(`[processErrors] ✗ ${url} -> не удалось получить статус`);
         }
         processed++;
         
         if (processed % 100 === 0) {
-          console.log(`Обработано ${processed}/${urls.length} URL`);
+          console.log(`[processErrors] Обработано ${processed}/${urls.length} URL`);
         }
       } catch (error) {
-        console.error(`Ошибка при обработке ${url}:`, error.message);
+        console.error(`[processErrors] Ошибка при обработке ${url}:`, error.message);
         errorCount++;
         processed++;
       }
@@ -116,7 +123,10 @@ async function processErrors(errorsFilePath, options = {}) {
     }
   }
   
-  console.log(`Проверка статусов завершена. Успешно: ${successCount}, Ошибок: ${errorCount}`);
+  console.log(`\n[processErrors] ✓ Проверка статусов завершена:`);
+  console.log(`[processErrors]   - Успешно проверено: ${successCount}`);
+  console.log(`[processErrors]   - Ошибок при проверке: ${errorCount}`);
+  console.log(`[processErrors]   - Всего обработано: ${processed}/${urls.length}`);
 }
 
 module.exports = {

@@ -24,22 +24,6 @@ function askQuestion(question) {
   });
 }
 
-/**
- * Показать главное меню
- */
-function showMenu() {
-  console.log('\n' + '='.repeat(50));
-  console.log('Главное меню');
-  console.log('='.repeat(50));
-  console.log('1. Скачать коллекции с сервера');
-  console.log('2. Запустить поиск релевантных редиректов');
-  console.log('3. Выгрузить результат в файл "result.json"');
-  console.log('4. Очистить данные');
-  console.log('5. Преобразовать CSV в JSON');
-  console.log('6. Отправить результаты на сервер');
-  console.log('0. Выход');
-  console.log('='.repeat(50));
-}
 
 /**
  * Выполнить команду
@@ -161,19 +145,6 @@ async function convertCsvToJson() {
  * Очистка данных
  */
 async function clearData() {
-  console.log('\n⚠ ВНИМАНИЕ: Будут удалены следующие файлы:');
-  console.log('  - redirects.db (и связанные файлы)');
-  console.log('  - result.json');
-  console.log('  - data/nest.catalog1cs.json');
-  console.log('  - data/nest.product1cs.json');
-  
-  const confirm = await askQuestion('\nВы уверены? (yes/no): ');
-  
-  if (confirm.toLowerCase() !== 'yes' && confirm.toLowerCase() !== 'y') {
-    console.log('Очистка отменена');
-    return;
-  }
-  
   const filesToDelete = [
     'redirects.db',
     'redirects.db-shm',
@@ -213,54 +184,111 @@ async function main() {
   console.log('Система обработки редиректов');
   console.log('='.repeat(50));
   
-  while (true) {
-    showMenu();
-    const choice = await askQuestion('\nВыберите действие (0-6): ');
+  try {
+    // Шаг 1: Очистить данные
+    console.log('\n' + '='.repeat(50));
+    console.log('Шаг 1: Очистка данных');
+    console.log('='.repeat(50));
+    console.log('⚠ ВНИМАНИЕ: Будут удалены следующие файлы:');
+    console.log('  - redirects.db (и связанные файлы)');
+    console.log('  - result.json');
+    console.log('  - data/nest.catalog1cs.json');
+    console.log('  - data/nest.product1cs.json');
     
-    switch (choice.trim()) {
-      case '1':
-        try {
-          await fetchCollections();
-        } catch (error) {
-          console.error('✗ Ошибка при скачивании коллекций');
-        }
+    while (true) {
+      const confirmClear = await askQuestion('\nПродолжить? (1 - Да, 2 - Нет): ');
+      
+      if (confirmClear.trim() === '1') {
         break;
-        
-      case '2':
-        executeCommand('npm start', 'Поиск релевантных редиректов');
-        break;
-        
-      case '3':
-        executeCommand('npm run export', 'Выгрузка результата в файл');
-        break;
-        
-      case '4':
-        await clearData();
-        break;
-        
-      case '5':
-        await convertCsvToJson();
-        break;
-        
-      case '6':
-        await sendResultsToServer();
-        break;
-        
-      case '0':
-        console.log('\nДо свидания!');
+      } else if (confirmClear.trim() === '2') {
+        console.log('Очистка отменена. Программа завершена.');
         rl.close();
         process.exit(0);
-        break;
-        
-      default:
-        console.log('\n⚠ Неверный выбор. Пожалуйста, выберите число от 0 до 6.');
-        break;
+        return;
+      } else {
+        console.log('⚠ Неверный выбор. Введите 1 или 2.');
+      }
     }
     
-    // Пауза перед показом меню снова
-    if (choice.trim() !== '0') {
-      await askQuestion('\nНажмите Enter для продолжения...');
+    await clearData();
+    await askQuestion('\nНажмите Enter для продолжения...');
+    
+    // Шаг 2: Скачать коллекции с сервера
+    console.log('\n' + '='.repeat(50));
+    console.log('Шаг 2: Скачивание коллекций с сервера');
+    console.log('='.repeat(50));
+    await askQuestion('Нажмите Enter для начала скачивания...');
+    
+    try {
+      await fetchCollections();
+      console.log('✓ Скачивание коллекций завершено успешно');
+    } catch (error) {
+      console.error('✗ Ошибка при скачивании коллекций:', error.message);
+      throw error;
     }
+    
+    await askQuestion('\nНажмите Enter для продолжения...');
+    
+    // Шаг 3: Преобразовать CSV в JSON
+    console.log('\n' + '='.repeat(50));
+    console.log('Шаг 3: Преобразование CSV в JSON');
+    console.log('='.repeat(50));
+    await askQuestion('Нажмите Enter для начала преобразования...');
+    
+    await convertCsvToJson();
+    await askQuestion('\nНажмите Enter для продолжения...');
+    
+    // Шаг 4: Запустить поиск релевантных редиректов
+    console.log('\n' + '='.repeat(50));
+    console.log('Шаг 4: Поиск релевантных редиректов');
+    console.log('='.repeat(50));
+    await askQuestion('Нажмите Enter для начала поиска...');
+    
+    executeCommand('npm start', 'Поиск релевантных редиректов');
+    await askQuestion('\nНажмите Enter для продолжения...');
+    
+    // Шаг 5: Выгрузить результат в файл "result.json"
+    console.log('\n' + '='.repeat(50));
+    console.log('Шаг 5: Выгрузка результата в файл "result.json"');
+    console.log('='.repeat(50));
+    await askQuestion('Нажмите Enter для начала выгрузки...');
+    
+    executeCommand('npm run export', 'Выгрузка результата в файл');
+    await askQuestion('\nНажмите Enter для продолжения...');
+    
+    // Шаг 6: Отправить результаты на сервер?
+    console.log('\n' + '='.repeat(50));
+    console.log('Шаг 6: Отправка результатов на сервер');
+    console.log('='.repeat(50));
+    
+    while (true) {
+      const sendChoice = await askQuestion('Отправить результаты на сервер? (1 - Да, 2 - Нет): ');
+      
+      if (sendChoice.trim() === '1') {
+        try {
+          await sendResultsToServer();
+          console.log('✓ Результаты успешно отправлены на сервер');
+        } catch (error) {
+          console.error('✗ Ошибка при отправке результатов:', error.message);
+        }
+        break;
+      } else if (sendChoice.trim() === '2') {
+        console.log('Отправка результатов пропущена');
+        break;
+      } else {
+        console.log('⚠ Неверный выбор. Введите 1 или 2.');
+      }
+    }
+    
+    console.log('\n' + '='.repeat(50));
+    console.log('Все шаги выполнены успешно!');
+    console.log('='.repeat(50));
+    
+  } catch (error) {
+    console.error('\n✗ Критическая ошибка:', error.message);
+  } finally {
+    rl.close();
+    process.exit(0);
   }
 }
 

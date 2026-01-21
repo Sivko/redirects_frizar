@@ -144,11 +144,14 @@ async function main() {
     createAllTables();
     
     console.log('\n=== Обработка ошибок ===');
+    console.log(`[index.js] Файл с ошибками: ${errorsFile}`);
+    console.log(`[index.js] Вызываем processErrors с skipStatusCheck: false`);
     // Проверяем статусы всех URL через GET запросы
     await processErrors(errorsFile, { 
       skipStatusCheck: false, // Проверяем статусы всех URL
       concurrency: 10 
     });
+    console.log(`[index.js] processErrors завершен`);
     
     console.log('\n=== Загрузка справочников ===');
     loadAllReferences(productsFile, catalogFile);
