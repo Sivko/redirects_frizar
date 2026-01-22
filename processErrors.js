@@ -26,30 +26,75 @@ function readErrorsFile(filePath) {
 }
 
 /**
- * Проверка статуса URL через GET запрос
+ * Проверка статуса URL через GET запрос с отслеживанием редиректов
  * @param {string} url - URL для проверки
- * @returns {Promise<number>} HTTP статус код
+ * @returns {Promise<{status: number|null, finalUrl: string|null}>} объект с HTTP статус кодом и финальным URL
  */
 async function checkUrlStatus(url) {
   try {
     const response = await axios.get(url, {
       timeout: 10000, // 10 секунд таймаут
       validateStatus: () => true, // Не выбрасывать ошибку для любых статусов
-      maxRedirects: 5
+      maxRedirects: 10 // Отслеживаем редиректы
     });
-    return response.status;
+    
+    // Получаем финальный URL после всех редиректов
+    // Пробуем разные способы получения финального URL
+    let finalUrl = null;
+    if (response.request?.res?.responseUrl) {
+      finalUrl = response.request.res.responseUrl;
+    } else if (response.request?.res?.responseURL) {
+      finalUrl = response.request.res.responseURL;
+    } else if (response.request?.responseURL) {
+      finalUrl = response.request.responseURL;
+    } else if (response.config?.url) {
+      finalUrl = response.config.url;
+    }
+    
+    // Нормализуем URL для сравнения (убираем trailing slash)
+    const normalizeUrl = (u) => u ? u.replace(/\/$/, '') : u;
+    const normalizedOriginal = normalizeUrl(url);
+    const normalizedFinal = normalizeUrl(finalUrl);
+    
+    // Если финальный URL отличается от исходного, значит был редирект
+    const wasRedirected = finalUrl && normalizedFinal !== normalizedOriginal;
+    
+    return {
+      status: response.status,
+      finalUrl: wasRedirected ? finalUrl : null
+    };
   } catch (error) {
     if (error.response) {
       // Сервер ответил с кодом ошибки
-      return error.response.status;
+      let finalUrl = null;
+      if (error.response.request?.res?.responseUrl) {
+        finalUrl = error.response.request.res.responseUrl;
+      } else if (error.response.request?.res?.responseURL) {
+        finalUrl = error.response.request.res.responseURL;
+      } else if (error.response.request?.responseURL) {
+        finalUrl = error.response.request.responseURL;
+      } else if (error.config?.url) {
+        finalUrl = error.config.url;
+      }
+      
+      // Нормализуем URL для сравнения
+      const normalizeUrl = (u) => u ? u.replace(/\/$/, '') : u;
+      const normalizedOriginal = normalizeUrl(url);
+      const normalizedFinal = normalizeUrl(finalUrl);
+      const wasRedirected = finalUrl && normalizedFinal !== normalizedOriginal;
+      
+      return {
+        status: error.response.status,
+        finalUrl: wasRedirected ? finalUrl : null
+      };
     } else if (error.request) {
       // Запрос был сделан, но ответа не получено
       console.error(`Нет ответа от сервера для ${url}`);
-      return null;
+      return { status: null, finalUrl: null };
     } else {
       // Ошибка при настройке запроса
       console.error(`Ошибка при запросе ${url}:`, error.message);
-      return null;
+      return { status: null, finalUrl: null };
     }
   }
 }
@@ -94,11 +139,15 @@ async function processErrors(errorsFilePath, options = {}) {
     
     const promises = batch.map(async (url) => {
       try {
-        const status = await checkUrlStatus(url);
-        if (status !== null) {
-          updateErrorStatus(url, status);
+        const result = await checkUrlStatus(url);
+        if (result.status !== null) {
+          updateErrorStatus(url, result.status, result.finalUrl);
           successCount++;
-          console.log(`[processErrors] ✓ ${url} -> статус ${status}`);
+          if (result.finalUrl) {
+            console.log(`[processErrors] ✓ ${url} -> редирект на ${result.finalUrl} -> статус ${result.status}`);
+          } else {
+            console.log(`[processErrors] ✓ ${url} -> статус ${result.status}`);
+          }
         } else {
           errorCount++;
           console.log(`[processErrors] ✗ ${url} -> не удалось получить статус`);

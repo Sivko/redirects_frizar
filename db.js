@@ -38,9 +38,11 @@ function createActualStatusTable() {
     CREATE TABLE actualStatus (
       url TEXT UNIQUE NOT NULL,
       status INTEGER,
+      final_url TEXT,
       PRIMARY KEY (url)
     );
     CREATE INDEX idx_actualStatus_url ON actualStatus(url);
+    CREATE INDEX idx_actualStatus_final_url ON actualStatus(final_url);
   `);
   console.log('Таблица actualStatus создана/пересоздана');
 }
@@ -122,10 +124,11 @@ function insertErrors(errors) {
  * Обновление статуса для URL
  * @param {string} url - URL
  * @param {number} status - HTTP статус код
+ * @param {string} finalUrl - финальный URL после редиректов (опционально)
  */
-function updateErrorStatus(url, status) {
-  const update = db.prepare('UPDATE actualStatus SET status = ? WHERE url = ?');
-  update.run(status, url);
+function updateErrorStatus(url, status, finalUrl = null) {
+  const update = db.prepare('UPDATE actualStatus SET status = ?, final_url = ? WHERE url = ?');
+  update.run(status, finalUrl, url);
 }
 
 /**
@@ -171,10 +174,10 @@ function getAllErrors() {
 /**
  * Получение ошибок с определенным статусом (ошибки сервера)
  * @param {number} minStatus - минимальный статус код (по умолчанию 400)
- * @returns {Array<{url: string, status: number}>}
+ * @returns {Array<{url: string, status: number, final_url: string|null}>}
  */
 function getErrorsByStatus(minStatus = 400) {
-  return db.prepare('SELECT url, status FROM actualStatus WHERE status >= ? AND status IS NOT NULL').all(minStatus);
+  return db.prepare('SELECT url, status, final_url FROM actualStatus WHERE status >= ? AND status IS NOT NULL').all(minStatus);
 }
 
 /**

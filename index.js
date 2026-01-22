@@ -6,9 +6,10 @@ const {
   getErrorsByStatus,
   getAllProducts,
   getAllCatalog,
-  insertRedirects
+  insertRedirects,
+  updateErrorStatus
 } = require('./db');
-const { processErrors } = require('./processErrors');
+const { processErrors, checkUrlStatus } = require('./processErrors');
 const { loadAllReferences } = require('./loadReferences');
 const { findBestMatch } = require('./fuzzyMatch');
 
@@ -51,8 +52,9 @@ function getUrlType(url) {
 /**
  * Обработка редиректов
  * Создает редиректы только для страниц с ошибкой (статус >= 400)
+ * Следует редиректам и проверяет финальную страницу на 404
  */
-function processRedirects() {
+async function processRedirects() {
   console.log('\n=== Начинаем обработку редиректов ===');
   
   // Получаем только ошибки со статусом >= 400 (ошибки сервера)
@@ -69,19 +71,51 @@ function processRedirects() {
   let productMatches = 0;
   let catalogMatches = 0;
   let skipped = 0;
+  let redirectedTo404 = 0;
   
   for (const error of errors) {
-    const url = error.url;
-    const urlType = getUrlType(url);
+    let url = error.url;
+    let urlType = getUrlType(url);
+    
+    // Если есть финальный URL после редиректа, проверяем его
+    if (error.final_url) {
+      console.log(`[processRedirects] Обнаружен редирект: ${error.url} -> ${error.final_url}`);
+      
+      // Проверяем статус финальной страницы
+      const finalResult = await checkUrlStatus(error.final_url);
+      
+      if (finalResult.status === 404) {
+        // Финальная страница возвращает 404 - используем её для поиска
+        console.log(`[processRedirects] Финальная страница ${error.final_url} возвращает 404, используем для поиска`);
+        url = error.final_url;
+        urlType = getUrlType(url);
+        redirectedTo404++;
+        
+        // Обновляем статус финального URL в БД
+        updateErrorStatus(error.final_url, 404, null);
+      } else if (finalResult.status && finalResult.status < 400) {
+        // Финальная страница доступна (не ошибка) - пропускаем
+        console.log(`[processRedirects] Финальная страница ${error.final_url} доступна (статус ${finalResult.status}), пропускаем`);
+        skipped++;
+        processed++;
+        continue;
+      } else {
+        // Финальная страница имеет другую ошибку - используем её
+        url = error.final_url;
+        urlType = getUrlType(url);
+      }
+    }
     
     if (!urlType) {
       skipped++;
+      processed++;
       continue;
     }
     
     const code = extractLastSegment(url);
     if (!code) {
       skipped++;
+      processed++;
       continue;
     }
     
@@ -95,7 +129,7 @@ function processRedirects() {
       const toUrl = `https://frizar.ru/${urlType}/${match.code}`;
       
       redirects.push({
-        from: url,
+        from: error.url, // Всегда используем исходный URL как from
         to: toUrl,
         percent: match.percent
       });
@@ -111,7 +145,7 @@ function processRedirects() {
     
     processed++;
     
-    if (processed % 1000 === 0) {
+    if (processed % 100 === 0) {
       console.log(`Обработано ${processed}/${errors.length} ошибок, найдено редиректов: ${redirects.length}`);
     }
   }
@@ -126,6 +160,7 @@ function processRedirects() {
   console.log(`- Найдено редиректов: ${redirects.length}`);
   console.log(`  - Products: ${productMatches}`);
   console.log(`  - Catalog: ${catalogMatches}`);
+  console.log(`- Редиректы на 404: ${redirectedTo404}`);
   console.log(`- Пропущено: ${skipped}`);
 }
 
@@ -157,7 +192,7 @@ async function main() {
     loadAllReferences(productsFile, catalogFile);
     
     console.log('\n=== Обработка редиректов ===');
-    processRedirects();
+    await processRedirects();
     
     console.log('\n=== Готово! ===');
     
